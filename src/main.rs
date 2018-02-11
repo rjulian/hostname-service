@@ -68,7 +68,7 @@ fn main() {
 		}
 	}
 
-	router.get("/users", middleware! { |request, response|
+	router.get("/hosts", middleware! { |request, response|
 		let credentials = DefaultCredentialsProvider::new().unwrap();
 		let client = DynamoDbClient::new(default_tls_client().unwrap(), credentials, Region::UsEast1);
 		let mut scan_input: ScanInput = Default::default();
