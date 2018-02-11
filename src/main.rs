@@ -36,6 +36,7 @@ fn main() {
 		let client = DynamoDbClient::new(default_tls_client().unwrap(), credentials, Region::UsEast1);
 		let mut scan_input: ScanInput = Default::default();
 		scan_input.table_name = "hostname-service".to_ascii_lowercase();
+        scan_input.projection_expression = Some(String::from("hostname, ip, notes"));
 
         let mut data_result = "{\"data\":[".to_owned();
 
@@ -43,9 +44,9 @@ fn main() {
 			Ok(output) => {
 				match output.items {
 					Some(scan_items) => {
-						for item in scan_items {
+						for (item_index, item)  in scan_items.iter().enumerate() {
 							data_result.push_str("{");
-							for key in item.keys() {
+							for (index, key) in item.keys().enumerate() {
 								data_result.push_str(&format!("\"{}\":", key));
 								match item.get(key) {
 									Some(itemAttr) => {
@@ -56,9 +57,15 @@ fn main() {
 									}
 									None => println!("None")
 								}
-                                data_result.push_str(",");
+                                if index != (item.keys().len() - 1) {
+                                    data_result.push_str(",");
+                                }
 							}
-							data_result.push_str("},");
+                            if item_index != (item.len() - 1) {
+                                data_result.push_str("},");
+                            } else {
+                                data_result.push_str("}");
+                            }
 						}
 					},
 					None => println!("No items found")
