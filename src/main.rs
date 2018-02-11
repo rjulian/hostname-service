@@ -18,6 +18,8 @@ extern crate rusoto_core;
 extern crate rusoto_dynamodb;
 
 
+use std::collections::HashMap;
+
 // Nickel
 use nickel::{Nickel, JsonBody, HttpRouter, Request, Response, MiddlewareResult, MediaType};
 
@@ -27,7 +29,7 @@ use mongodb::db::ThreadedDatabase;
 use mongodb::error::Result as MongoResult;
 
 use rusoto_core::{default_tls_client, DefaultCredentialsProvider, Region};
-use rusoto_dynamodb::{DynamoDb, DynamoDbClient, ListTablesInput, ScanInput};
+use rusoto_dynamodb::{DynamoDb, DynamoDbClient, PutItemInput, AttributeValue, ScanInput};
 // bson
 use bson::{Bson, Document};
 use bson::oid::ObjectId;
@@ -70,7 +72,7 @@ fn main() {
 		let credentials = DefaultCredentialsProvider::new().unwrap();
 		let client = DynamoDbClient::new(default_tls_client().unwrap(), credentials, Region::UsEast1);
 		let mut scan_input: ScanInput = Default::default();
-		scan_input.table_name = "metrics-test".to_ascii_lowercase();
+		scan_input.table_name = "hostname-service".to_ascii_lowercase();
 
         let mut data_result = "{\"data\":[".to_owned();
 
@@ -99,7 +101,7 @@ fn main() {
 					None => println!("No items found")
 					}
 				},
-				Err(error) => return response.send(format!("{}", e))
+				Err(error) => return response.send(format!("{}", error))
         }
     
         data_result.push_str("]}");
@@ -113,23 +115,23 @@ fn main() {
 		// Accept a JSON string that corresponds to the User struct
 		let host = request.json_as::<Host>().unwrap();
 
-		let hostname = host.hostname.to_string();
+        let hostname = host.hostname.to_string();
 		let ip = host.ip.to_string();
 		let notes = host.notes.to_string();
 
-		// Connect to the database
-		let client = Client::connect("localhost", 27017)
-			.ok().expect("Error establishing connection.");
+        let mut put_item = HashMap::new();
+        put_item.insert(String::from("hostname"), AttributeValue { s: Some(hostname),  ..Default::default() });
+        put_item.insert(String::from("ip"), AttributeValue { s: Some(ip),  ..Default::default() });
+        put_item.insert(String::from("notes"), AttributeValue { s: Some(notes),  ..Default::default() });
 
-		// The users collection
-		let coll = client.db("rust-users").collection("users");
+        let credentials = DefaultCredentialsProvider::new().unwrap();
+		let client = DynamoDbClient::new(default_tls_client().unwrap(), credentials, Region::UsEast1);
+		let mut item_input: PutItemInput = Default::default();
+		item_input.table_name = "hostname-service".to_ascii_lowercase();
+        item_input.item = put_item;
 
 		// Insert one user
-		match coll.insert_one(doc! {
-			"hostname" => hostname,
-			"ip" => ip,
-			"notes" => notes
-		}, None) {
+		match client.put_item(&item_input) {
 			Ok(_) => (StatusCode::Ok, "Item saved!"),
 			Err(e) => return response.send(format!("{}", e))
 		}
