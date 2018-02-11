@@ -1,8 +1,8 @@
 [package]
 
-name = "rust-users"
+name = "hostname-service"
 version = "0.0.1"
-authors = [ "Firstname Lastname <you@email.com>" ]
+authors = [ "Richard Juliane <richard@rjulian.net>" ]
 
 [dependencies]
 nickel = "*"
