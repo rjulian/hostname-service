@@ -14,6 +14,10 @@ extern crate crypto;
 extern crate bson;
 extern crate mongodb;
 
+extern crate rusoto_core;
+extern crate rusoto_dynamodb;
+
+
 // Nickel
 use nickel::{Nickel, JsonBody, HttpRouter, Request, Response, MiddlewareResult, MediaType};
 
@@ -22,6 +26,8 @@ use mongodb::{Client, ThreadedClient};
 use mongodb::db::ThreadedDatabase;
 use mongodb::error::Result as MongoResult;
 
+use rusoto_core::{default_tls_client, DefaultCredentialsProvider, Region};
+use rusoto_dynamodb::{DynamoDb, DynamoDbClient, ListTablesInput, ScanInput};
 // bson
 use bson::{Bson, Document};
 use bson::oid::ObjectId;
@@ -61,54 +67,55 @@ fn main() {
 	}
 
 	router.get("/users", middleware! { |request, response|
+		let credentials = DefaultCredentialsProvider::new().unwrap();
+		let client = DynamoDbClient::new(default_tls_client().unwrap(), credentials, Region::UsEast1);
+		let mut scan_input: ScanInput = Default::default();
+		scan_input.table_name = "metrics-test".to_ascii_lowercase();
 
-		// Connect to the database
-		let client = Client::connect("localhost", 27017)
-			.ok().expect("Error establishing connection.");
+        let mut data_result = "{\"data\":[".to_owned();
 
-		// The users collection
-		let coll = client.db("rust-users").collection("users");
-
-		// Create cursor that finds all documents
-		let mut cursor = coll.find(None, None).unwrap();
-
-		// Opening for the JSON string to be returned
-		let mut data_result = "{\"data\":[".to_owned();
-
-		for (i, result) in cursor.enumerate() {
-			match get_data_string(result) {
-				Ok(data) => {
-					let string_data = if i == 0 {
-						format!("{}", data)
-					} else {
-						format!("{},", data)
-					};
-
-					data_result.push_str(&string_data);
+		match client.scan(&scan_input) {
+			Ok(output) => {
+				match output.items {
+					Some(scan_items) => {
+						for item in scan_items {
+							data_result.push_str("{");
+							for key in item.keys() {
+								data_result.push_str(&format!("\"{}\":", key));
+								match item.get(key) {
+									Some(itemAttr) => {
+										match itemAttr.s {
+										Some(ref value) => data_result.push_str(&format!("\"{}\"", value)),
+										None => println!("None")
+										}
+									}
+									None => println!("None")
+								}
+                                data_result.push_str(",");
+							}
+							data_result.push_str("},");
+						}
+					},
+					None => println!("No items found")
+					}
 				},
-
-				Err(e) => return response.send(format!("{}", e))
-			}
-		}
-
-		// Close the JSON string
-		data_result.push_str("]}");
-
-
-		// Send back the result
-		format!("{}", data_result)
+				Err(error) => return response.send(format!("{}", e))
+        }
+    
+        data_result.push_str("]}");
+        (StatusCode::Ok, data_result)
 
 	});
 
 
-	router.post("/users/new", middleware! { |request, response|
+	router.post("/hosts/new", middleware! { |request, response|
 
 		// Accept a JSON string that corresponds to the User struct
-		let user = request.json_as::<User>().unwrap();
+		let host = request.json_as::<Host>().unwrap();
 
-		let firstname = user.firstname.to_string();
-		let lastname = user.lastname.to_string();
-		let email = user.email.to_string();
+		let hostname = host.hostname.to_string();
+		let ip = host.ip.to_string();
+		let notes = host.notes.to_string();
 
 		// Connect to the database
 		let client = Client::connect("localhost", 27017)
@@ -119,9 +126,9 @@ fn main() {
 
 		// Insert one user
 		match coll.insert_one(doc! {
-			"firstname" => firstname,
-			"lastname" => lastname,
-			"email" => email
+			"hostname" => hostname,
+			"ip" => ip,
+			"notes" => notes
 		}, None) {
 			Ok(_) => (StatusCode::Ok, "Item saved!"),
 			Err(e) => return response.send(format!("{}", e))
@@ -159,15 +166,9 @@ fn main() {
 }
 
 #[derive(RustcDecodable, RustcEncodable)]
-struct User {
-	firstname: String,
-	lastname: String,
-	email: String
-}
-
-#[derive(RustcDecodable, RustcEncodable)]
-struct UserLogin {
-	email: String,
-	password: String
+struct Host {
+	hostname: String,
+	ip: String,
+	notes: String
 }
 
