@@ -6,14 +6,6 @@ extern crate nickel;
 extern crate serde_json;
 extern crate rustc_serialize;
 
-extern crate jwt;
-extern crate hyper;
-extern crate crypto;
-
-#[macro_use(bson, doc)]
-extern crate bson;
-extern crate mongodb;
-
 extern crate rusoto_core;
 extern crate rusoto_dynamodb;
 
@@ -23,16 +15,8 @@ use std::collections::HashMap;
 // Nickel
 use nickel::{Nickel, JsonBody, HttpRouter, Request, Response, MiddlewareResult, MediaType};
 
-// MongoDB
-use mongodb::{Client, ThreadedClient};
-use mongodb::db::ThreadedDatabase;
-use mongodb::error::Result as MongoResult;
-
 use rusoto_core::{default_tls_client, DefaultCredentialsProvider, Region};
 use rusoto_dynamodb::{DynamoDb, DynamoDbClient, DeleteItemInput, PutItemInput, AttributeValue, ScanInput};
-// bson
-use bson::{Bson, Document};
-use bson::oid::ObjectId;
 
 // rustc_serialize
 use rustc_serialize::json::{Json, ToJson};
@@ -41,32 +25,11 @@ use serde_json::value::{Value};
 // Nickel
 use nickel::status::StatusCode::{self, Forbidden};
 
-// hyper
-use hyper::header;
-use hyper::header::{Authorization, Bearer};
-
-// jwt
-use std::default::Default;
-use crypto::sha2::Sha256;
-use jwt::{
-	Header,
-	Registered,
-	Token,
-};
-
-static AUTH_SECRET: &'static str = "some_secret_key";
 
 fn main() {
 
 	let mut server = Nickel::new();
 	let mut router = Nickel::router();
-
-	fn get_data_string(result: MongoResult<Document>) -> Result<Value, String> {
-		match result {
-			Ok(doc) => Ok(Bson::Document(doc).to_json()),
-			Err(e) => Err(format!("{}", e))
-		}
-	}
 
 	router.get("/hosts", middleware! { |request, response|
 		let credentials = DefaultCredentialsProvider::new().unwrap();
@@ -112,7 +75,6 @@ fn main() {
 
 	router.post("/hosts/new", middleware! { |request, response|
 
-		// Accept a JSON string that corresponds to the User struct
 		let host = request.json_as::<Host>().unwrap();
 
         let hostname = host.hostname.to_string();
@@ -130,7 +92,6 @@ fn main() {
 		item_input.table_name = "hostname-service".to_ascii_lowercase();
         item_input.item = put_item;
 
-		// Insert one user
 		match client.put_item(&item_input) {
 			Ok(_) => (StatusCode::Ok, "Item saved!"),
 			Err(e) => return response.send(format!("{}", e))
@@ -151,7 +112,6 @@ fn main() {
 		delete_item_input.table_name = "hostname-service".to_ascii_lowercase();
         delete_item_input.key = delete_item;
 
-		// Insert one user
 		match client.delete_item(&delete_item_input) {
 			Ok(_) => (StatusCode::Ok, "Item deleted!"),
 			Err(e) => return response.send(format!("{}", e))

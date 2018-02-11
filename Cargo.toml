@@ -6,12 +6,7 @@ authors = [ "Richard Juliane <richard@rjulian.net>" ]
 
 [dependencies]
 nickel = "*"
-mongodb = "*"
-bson = "0.10.0"
 rustc-serialize = "*"
 serde_json = "1.0"
-jwt = "*"
-hyper = "*"
-rust-crypto = "*"
 rusoto_dynamodb = "*" 
 rusoto_core = "*" 
