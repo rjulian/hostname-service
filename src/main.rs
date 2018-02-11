@@ -29,7 +29,7 @@ use mongodb::db::ThreadedDatabase;
 use mongodb::error::Result as MongoResult;
 
 use rusoto_core::{default_tls_client, DefaultCredentialsProvider, Region};
-use rusoto_dynamodb::{DynamoDb, DynamoDbClient, PutItemInput, AttributeValue, ScanInput};
+use rusoto_dynamodb::{DynamoDb, DynamoDbClient, DeleteItemInput, PutItemInput, AttributeValue, ScanInput};
 // bson
 use bson::{Bson, Document};
 use bson::oid::ObjectId;
@@ -138,28 +138,24 @@ fn main() {
 
 	});
 
-	router.delete("/users/:id", middleware! { |request, response|
+	router.delete("/hosts", middleware! { |request, response|
+        let host = request.json_as::<HostSearch>().unwrap();
 
-		let client = Client::connect("localhost", 27017)
-			.ok().expect("Failed to initialize standalone client.");
+        let hostname = host.hostname.to_string();
+        let mut delete_item = HashMap::new();
+        delete_item.insert(String::from("hostname"), AttributeValue { s: Some(hostname),  ..Default::default() });
 
-		// The users collection
-		let coll = client.db("rust-users").collection("users");
+        let credentials = DefaultCredentialsProvider::new().unwrap();
+		let client = DynamoDbClient::new(default_tls_client().unwrap(), credentials, Region::UsEast1);
+		let mut delete_item_input: DeleteItemInput = Default::default();
+		delete_item_input.table_name = "hostname-service".to_ascii_lowercase();
+        delete_item_input.key = delete_item;
 
-		// Get the objectId from the request params
-		let object_id = request.param("id").unwrap();
-
-		// Match the user id to an bson ObjectId
-		let id = match ObjectId::with_string(object_id) {
-			Ok(oid) => oid,
-			Err(e) => return response.send(format!("{}", e))
-		};
-
-		match coll.delete_one(doc! {"_id" => id}, None) {
+		// Insert one user
+		match client.delete_item(&delete_item_input) {
 			Ok(_) => (StatusCode::Ok, "Item deleted!"),
 			Err(e) => return response.send(format!("{}", e))
 		}
-
 	});
 
 	server.utilize(router);
@@ -172,5 +168,9 @@ struct Host {
 	hostname: String,
 	ip: String,
 	notes: String
+}
+#[derive(RustcDecodable, RustcEncodable)]
+struct HostSearch {
+	hostname: String,
 }
 
