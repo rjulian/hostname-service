@@ -2,11 +2,14 @@ environments:
   - name: production
     cluster:
       maxSize: 2
+      instanceType: t2.medium
 
 service:
   name: hostnames
   healthEndpoint: /health
   port: 9000
+  cpu: 20
+  memory: 400
   pathPatterns:
     - /*
   pipeline:
@@ -18,5 +21,4 @@ service:
       disabled: true
     production:
       environment: production
-
 
