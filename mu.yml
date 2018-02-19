@@ -13,6 +13,7 @@ service:
     source:
       provider: GitHub
       repo: rjulian/hostname-service
+    build: 
     acceptance: 
       disabled: true
     production:
