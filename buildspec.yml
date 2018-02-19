@@ -5,3 +5,7 @@ phases:
     commands:
       - echo "replace me with real build commands..."
 
+artifacts:
+  files:
+    - '**/*'
+
