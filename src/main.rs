@@ -15,7 +15,7 @@ use std::collections::HashMap;
 // Nickel
 use nickel::{Nickel, JsonBody, HttpRouter, Request, Response, MiddlewareResult, MediaType};
 
-use rusoto_core::{default_tls_client, DefaultCredentialsProvider, Region};
+use rusoto_core::{default_tls_client, ContainerProvider, Region};
 use rusoto_dynamodb::{DynamoDb, DynamoDbClient, DeleteItemInput, PutItemInput, AttributeValue, ScanInput};
 
 // rustc_serialize
@@ -36,8 +36,7 @@ fn main() {
     });
 
 	router.get("/hosts", middleware! { |request, response|
-		let credentials = DefaultCredentialsProvider::new().unwrap();
-		let client = DynamoDbClient::new(default_tls_client().unwrap(), credentials, Region::UsEast1);
+		let client = DynamoDbClient::new(default_tls_client().unwrap(), ContainerProvider, Region::UsEast1);
 		let mut scan_input: ScanInput = Default::default();
 		scan_input.table_name = "hostname-service".to_ascii_lowercase();
         scan_input.projection_expression = Some(String::from("hostname, ip, notes"));
@@ -97,8 +96,7 @@ fn main() {
         put_item.insert(String::from("ip"), AttributeValue { s: Some(ip),  ..Default::default() });
         put_item.insert(String::from("notes"), AttributeValue { s: Some(notes),  ..Default::default() });
 
-        let credentials = DefaultCredentialsProvider::new().unwrap();
-		let client = DynamoDbClient::new(default_tls_client().unwrap(), credentials, Region::UsEast1);
+		let client = DynamoDbClient::new(default_tls_client().unwrap(), ContainerProvider, Region::UsEast1);
 		let mut item_input: PutItemInput = Default::default();
 		item_input.table_name = "hostname-service".to_ascii_lowercase();
         item_input.item = put_item;
@@ -117,8 +115,7 @@ fn main() {
         let mut delete_item = HashMap::new();
         delete_item.insert(String::from("hostname"), AttributeValue { s: Some(hostname),  ..Default::default() });
 
-        let credentials = DefaultCredentialsProvider::new().unwrap();
-		let client = DynamoDbClient::new(default_tls_client().unwrap(), credentials, Region::UsEast1);
+		let client = DynamoDbClient::new(default_tls_client().unwrap(), ContainerProvider, Region::UsEast1);
 		let mut delete_item_input: DeleteItemInput = Default::default();
 		delete_item_input.table_name = "hostname-service".to_ascii_lowercase();
         delete_item_input.key = delete_item;
