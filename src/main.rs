@@ -34,6 +34,7 @@ fn main() {
 	router.get("/health", middleware! { |request, response|
         (StatusCode::Ok, "Healthy!")
     });
+
 	router.get("/hosts", middleware! { |request, response|
 		let credentials = DefaultCredentialsProvider::new().unwrap();
 		let client = DynamoDbClient::new(default_tls_client().unwrap(), credentials, Region::UsEast1);
